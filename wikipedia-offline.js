@@ -1,6 +1,7 @@
 (function() {
 	
 	// As a learning exercise, I'm doing this without any libraries
+	// $ is just a shortcut to querySelectorAll
 	function $(query) {
 		return document.querySelectorAll(query);
 	}
@@ -139,7 +140,11 @@
 				self.keyTimeout = null;
 				if (self.input.value !== '') {
 					self.page.wikipedia.search(self.input.value, function(results) {
-						self.showResults.apply(self, [results]);
+						if (results[1].length === 1) {
+							self.page.load(results[1][0]);
+						} else {
+							self.showResults.apply(self, [results]);
+						}
 					});
 				}
 			}, 500);
@@ -359,7 +364,6 @@
 	};
 	
 	Wikipedia.prototype.setDomain = function(domain) {
-		console.log('setDomain: ' + domain);
 		this.domain = domain;
 	};
 	
