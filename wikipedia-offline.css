@@ -1,0 +1,127 @@
+html {
+  box-sizing: border-box;
+}
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+body {
+	margin: 0;
+	font: 16px "helvetica neue", sans-serif;
+}
+
+form {
+	position: relative;
+	padding: 48px 0 16px 0;
+}
+
+form:after {
+	clear: both;
+	display: table;
+	content: "";
+}
+
+#input {
+	font: 24px "helvetica neue", sans-serif;
+	height: 39px;
+	width: 100%;
+	float: left;
+	margin: 0;
+	padding: 0 34px 0 0;
+	border: none;
+	border-bottom: 2px solid #dedede;
+	box-shadow: none;
+	transition: border-color 0.25s ease-out;
+	overflow: hidden;
+}
+
+#input:focus {
+	box-shadow: none;
+	outline: none;
+	border-color: #000;
+}
+
+#clear {
+	padding: 0 10px 10px 10px;	
+	font-size: 24px;
+	font-weight: bold;
+	color: #aaa;
+	position: absolute;
+	right: -10px;
+	bottom: 15px;
+	text-decoration: none;
+}
+
+#clear:hover {
+	color: #000;
+	text-decoration: none;
+}
+
+form button {
+	float: left;
+	background: #dedede;
+	width: 32px;
+	height: 32px;
+	border: none;
+	border-radius: 0 5px 5px 0;
+}
+
+form button img {
+	margin-top: 2px;
+	height: 16px;
+	width: 16px;
+}
+
+form .autocomplete {
+	position: absolute;
+	left: 0;
+	border: 2px solid #aaa;
+	border-top: none;
+	margin: 0;
+	padding: 0;
+	z-index: 1;
+}
+
+form .autocomplete li {
+	display: block;
+	border-top: 1px solid #f2f2f2;
+	margin: 0;
+	list-style: none;
+	background: #fff;
+}
+
+form .autocomplete a {
+	padding: 5px;
+	display: block;
+	color: #000;
+	text-decoration: none;
+}
+
+form .autocomplete li:first-child {
+	border-top: none;
+}
+
+form .autocomplete .selected,
+form .autocomplete a:hover {
+	background: #add7fd;
+}
+
+form .autocomplete:hover .selected {
+	background: #fff;
+}
+
+#content {
+	border-top: none;
+}
+
+.hidden {
+	display: none;
+}
+
+@media (min-width: 768px) {
+	
+	#input {
+		font-size: 36px;
+	}
+	
+}

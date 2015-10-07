@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Wikipedia Offline</title>
+		<link rel="stylesheet" href="https://en.wikipedia.org/w/load.php?debug=false&amp;lang=en&amp;modules=skins.minerva.base.reset%2Cstyles%7Cskins.minerva.content.styles%7Cskins.minerva.tablet.styles&amp;only=styles&amp;skin=minerva&amp;target=mobile">
+		<link rel="stylesheet" href="wikipedia-offline.css">
+	</head>
+	<body class="mediawiki ltr sitedir-ltr stable mw-mobile-mode skin-minerva">
+		<form action="./" class="pre-content" id="form">
+			<textarea id="input" name="q" placeholder="Search" spellcheck="false"></textarea>
+			<a href="#" id="clear" class="hidden">&times;</a>
+		</form>
+		<div id="content">
+			<div id="bodyContent" class="content mw-content-ltr"></div>
+		</div>
+		
+		<script src="wikipedia-offline.js"></script>
+	</body>
+</html>
