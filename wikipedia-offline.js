@@ -24,7 +24,8 @@
 			    e.target.nodeName == 'A') {
 				var title = titleDecode(e.target.getAttribute('href'));
 				if (title) {
-					self.load(title);
+					var hash = hashDecode(e.target.getAttribute('href'));
+					self.load(title, hash);
 					e.preventDefault();
 					return false;
 				}
@@ -32,7 +33,7 @@
 		}, false);
 	};
 	
-	Page.prototype.load = function(title) {
+	Page.prototype.load = function(title, hash) {
 		this.search.input.value = title;
 		this.search.update();
 		if (this.search.input) {
@@ -42,12 +43,12 @@
 		var self = this;
 		this.indexedDB.get('articles', url, function(article) {
 			if (article) {
-				self.display(article);
+				self.display(article, hash);
 			} else {
 				self.wikipedia.load(title, function(data) {
 					var article = data.mobileview;
 					article.url = url;
-					self.display(article);
+					self.display(article, hash);
 					self.indexedDB.put('articles', article);
 					self.saved.update();
 				});
@@ -55,7 +56,7 @@
 		});
 	};
 	
-	Page.prototype.display = function(article) {
+	Page.prototype.display = function(article, hash) {
 		var html = '';
 		for (var i = 0; i < article.sections.length; i++) {
 			html += article.sections[i].text;
@@ -63,7 +64,11 @@
 		var bodyContent = $('#bodyContent')[0];
 		bodyContent.innerHTML = html;
 		this.search.input.value = normalizeTitle(article.displaytitle);
-		window.scrollTo(0, 0);
+		if (hash) {
+			window.location = hash;
+		} else {
+			window.scrollTo(0, 0);
+		}
 	};
 	
 	Page.prototype.articleURL = function(title) {
@@ -360,62 +365,6 @@
 		this.xhr.send(data);
 	};
 	
-	function jsonp(url, success, failure) {
-		var timestamp = (new Date).getTime();
-		var random = Math.floor(Math.random() * 999999);
-		var callbackHook = 'jsonp_' + timestamp + random;
-		var sep = url.indexOf('?') < 0 ? '?' : '&';
-		url += sep + 'callback=' + callbackHook;
-		var script = document.createElement('script');
-		script.src = url;
-		var timeout = setTimeout(function() {
-			if (failure) {
-				failure();
-			}
-			document.body.removeChild(script);
-			delete window[callbackHook];
-		}, 5000);
-		window[callbackHook] = function(data) {
-			if (success) {
-				success(data);
-			}
-			clearTimeout(timeout);
-			document.body.removeChild(script);
-			delete window[callbackHook];
-		};
-		document.body.appendChild(script);
-		return timeout;
-	}
-	
-	function urlEncode(data) {
-		var query = [], value;
-		for (key in data) {
-			key   = encodeURIComponent(key);
-			value = encodeURIComponent(data[key]);
-			query.push(key + '=' + value);
-		}
-		return query.join('&');
-	}
-	
-	function titleDecode(url) {
-		var matches = url.match(/^\/wiki\/([^#]+)/);
-		if (matches) {
-			var title = matches[1];
-			title = title.replace(/_/g, ' ');
-			title = decodeURIComponent(title);
-			return title;
-		}
-		return null;
-	}
-	
-	function normalizeTitle(text) {
-		if (typeof text === 'string') {
-			text = text.replace(/&amp;/g, '&', text);
-			text = text.replace(/<[^>]+>/g, '', text);
-		}
-		return text;
-	}
-	
 	function IndexedDB(dbName, version, setup) {
 		this.dbName = dbName;
 		this.version = version;
@@ -552,6 +501,70 @@
 			this.readyQueue.shift().apply(this);
 		}
 	};
+	
+	function jsonp(url, success, failure) {
+		var timestamp = (new Date).getTime();
+		var random = Math.floor(Math.random() * 999999);
+		var callbackHook = 'jsonp_' + timestamp + random;
+		var sep = url.indexOf('?') < 0 ? '?' : '&';
+		url += sep + 'callback=' + callbackHook;
+		var script = document.createElement('script');
+		script.src = url;
+		var timeout = setTimeout(function() {
+			if (failure) {
+				failure();
+			}
+			document.body.removeChild(script);
+			delete window[callbackHook];
+		}, 5000);
+		window[callbackHook] = function(data) {
+			if (success) {
+				success(data);
+			}
+			clearTimeout(timeout);
+			document.body.removeChild(script);
+			delete window[callbackHook];
+		};
+		document.body.appendChild(script);
+		return timeout;
+	}
+	
+	function urlEncode(data) {
+		var query = [], value;
+		for (key in data) {
+			key   = encodeURIComponent(key);
+			value = encodeURIComponent(data[key]);
+			query.push(key + '=' + value);
+		}
+		return query.join('&');
+	}
+	
+	function titleDecode(url) {
+		var matches = url.match(/^\/wiki\/([^#]+)/);
+		if (matches) {
+			var title = matches[1];
+			title = title.replace(/_/g, ' ');
+			title = decodeURIComponent(title);
+			return title;
+		}
+		return null;
+	}
+	
+	function hashDecode(url) {
+		var matches = url.match(/^\/wiki\/[^#]+(#.+)$/);
+		if (matches) {
+			return matches[1];
+		}
+		return null;
+	}
+	
+	function normalizeTitle(text) {
+		if (typeof text === 'string') {
+			text = text.replace(/&amp;/g, '&', text);
+			text = text.replace(/<[^>]+>/g, '', text);
+		}
+		return text;
+	}
 	
 	var page = new Page();
 	window.db = page.indexedDB;
