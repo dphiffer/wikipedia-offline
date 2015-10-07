@@ -20,11 +20,19 @@
 	Page.prototype.setupLinkListener = function() {
 		var self = this;
 		document.body.addEventListener('click', function(e) {
-			if (e.target &&
-			    e.target.nodeName == 'A') {
-				var title = titleDecode(e.target.getAttribute('href'));
+			var link;
+			if (e.target) {
+				if (e.target.nodeName == 'A') {
+					link = e.target;
+				} else if (e.target.parentNode &&
+				           e.target.parentNode.nodeName == 'A') {
+					link = e.target.parentNode;
+				}
+			}
+			if (link) {
+				var title = titleDecode(link.getAttribute('href'));
 				if (title) {
-					var hash = hashDecode(e.target.getAttribute('href'));
+					var hash = hashDecode(link.getAttribute('href'));
 					self.load(title, hash);
 					e.preventDefault();
 					return false;
@@ -34,8 +42,6 @@
 	};
 	
 	Page.prototype.load = function(title, hash) {
-		this.search.input.value = title;
-		this.search.update();
 		if (this.search.input) {
 			this.search.input.blur();
 		}
@@ -47,6 +53,9 @@
 			} else {
 				self.wikipedia.load(title, function(data) {
 					var article = data.mobileview;
+					if (article.redirected) {
+						url = self.articleURL(article.redirected);
+					}
 					article.url = url;
 					self.display(article, hash);
 					self.indexedDB.put('articles', article);
@@ -64,6 +73,7 @@
 		var bodyContent = $('#bodyContent')[0];
 		bodyContent.innerHTML = html;
 		this.search.input.value = normalizeTitle(article.displaytitle);
+		this.search.update();
 		if (hash) {
 			window.location = hash;
 		} else {
@@ -471,16 +481,13 @@
 	
 	IndexedDB.prototype.each = function(objectStore, iterator, callback) {
 		if (!this.isReady) {
-			console.log('not ready');
 			this.readyQueue.push(function() {
 				this.each(objectStore, iterator, callback);
 			});
 			return;
 		}
-		console.log('ok ready');
 		var objectStore = this.db.transaction(objectStore).objectStore(objectStore);
 		objectStore.openCursor().onsuccess = function(e) {
-			console.log('cursor');
 			var cursor = e.target.result;
 			if (cursor) {
 				var result = iterator(cursor.value);
