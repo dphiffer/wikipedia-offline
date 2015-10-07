@@ -12,7 +12,7 @@ body {
 
 form {
 	position: relative;
-	padding: 48px 0 16px 0;
+	padding: 48px 0 0 0;
 }
 
 form:after {
@@ -48,7 +48,7 @@ form:after {
 	color: #aaa;
 	position: absolute;
 	right: -10px;
-	bottom: 15px;
+	bottom: 14px;
 	text-decoration: none;
 }
 
@@ -57,19 +57,25 @@ form:after {
 	text-decoration: none;
 }
 
-form button {
-	float: left;
-	background: #dedede;
-	width: 32px;
-	height: 32px;
-	border: none;
-	border-radius: 0 5px 5px 0;
+#connection-status,
+#domain {
+	font-size: 11px;
+	text-transform: uppercase;
+	margin-top: 5px;
+	color: #808080;
 }
 
-form button img {
-	margin-top: 2px;
-	height: 16px;
-	width: 16px;
+#connection-status {
+	float: left;
+}
+
+#domain {
+	cursor: pointer;
+	float: right;
+}
+
+.clear {
+	clear: both;
 }
 
 form .autocomplete {

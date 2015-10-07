@@ -28,6 +28,7 @@
 				           e.target.parentNode.nodeName == 'A') {
 					link = e.target.parentNode;
 				}
+				self.search.clickHandler(e.target);
 			}
 			if (link) {
 				var title = titleDecode(link.getAttribute('href'));
@@ -88,8 +89,7 @@
 	};
 	
 	Page.prototype.articleDomain = function() {
-		// TODO: let users control this
-		return 'en.wikipedia.org';
+		return $('#domain')[0].innerHTML;
 	};
 	
 	function SearchBox(page) {
@@ -103,15 +103,11 @@
 	
 	SearchBox.prototype.setupEvents = function() {
 		this.addListener(this.input, 'focus', function() {
+			this.focused = true;
 			this.input.select();
 		});
 		this.addListener(this.input, 'blur', function() {
-			var self = this;
-			setTimeout(function() {
-				if (self.autoComplete) {
-					self.autoComplete.className = 'hidden';
-				}
-			}, 100);
+			this.focused = false;
 		});
 		this.addListener(this.input, 'keydown', function(e) {
 			var ignoreKeys = [9, 16, 17, 18, 224, 37, 39];
@@ -126,10 +122,12 @@
 				e.preventDefault();
 				return false;
 			} else if (e.keyCode === 27) {
+				this.autoComplete.className = 'hidden';
 				this.input.blur();
 				return true;
 			} else if (e.keyCode === 13) {
 				this.page.load(this.input.value);
+				this.autoComplete.className = 'hidden';
 				e.preventDefault();
 				return false;
 			}
@@ -158,6 +156,13 @@
 			this.input.focus();
 			$('#bodyContent')[0].innerHTML = '';
 			return false;
+		});
+		this.addListener($('#domain')[0], 'click', function(e) {
+			var domain = prompt('Search which domain?', $('#domain')[0].innerHTML);
+			if (domain) {
+				$('#domain')[0].innerHTML = domain;
+				this.page.wikipedia.setDomain(domain);
+			}
 		});
 		this.addListener(this.form, 'keypress', this.update);
 		this.addListener(window, 'resize', this.update);
@@ -252,6 +257,18 @@
 		}, false);
 	};
 	
+	SearchBox.prototype.clickHandler = function(curr) {
+		while (curr.nodeName != 'BODY') {
+			if (curr.getAttribute('id') == 'input') {
+				return;
+			}
+			curr = curr.parentNode;
+		}
+		if (this.autoComplete) {
+			this.autoComplete.className = 'hidden';
+		}
+	}
+	
 	function SavedList(page) {
 		this.page = page;
 		this.update();
@@ -266,6 +283,12 @@
 			articles.sort(function(a, b) {
 				var titleA = normalizeTitle(a.displaytitle).toLowerCase();
 				var titleB = normalizeTitle(b.displaytitle).toLowerCase();
+				if (titleA.substr(0, 1) == '"') {
+					titleA = titleA.substr(1);
+				}
+				if (titleB.substr(0, 1) == '"') {
+					titleB = titleB.substr(1);
+				}
 				if (titleA < titleB) {
 					return -1;
 				} else {
@@ -336,6 +359,7 @@
 	};
 	
 	Wikipedia.prototype.setDomain = function(domain) {
+		console.log('setDomain: ' + domain);
 		this.domain = domain;
 	};
 	
