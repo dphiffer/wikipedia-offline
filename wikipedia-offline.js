@@ -7,13 +7,14 @@
 	
 	function Page() {
 		this.currPage = null;
-		this.search = new SearchBox('#q', this);
 		this.wikipedia = new Wikipedia(this.articleDomain());
 		this.indexedDB = new IndexedDB('mediawiki', 1, function(db) {
 			db.createObjectStore('articles', { keyPath: 'url' });
 		});
-		this.setupLinkListener();
+		this.search = new SearchBox(this);
 		this.search.input.focus();
+		this.saved = new SavedList(this);
+		this.setupLinkListener();
 	}
 	
 	Page.prototype.setupLinkListener = function() {
@@ -48,6 +49,7 @@
 					article.url = url;
 					self.display(article);
 					self.indexedDB.put('articles', article);
+					self.saved.update();
 				});
 			}
 		});
@@ -65,7 +67,7 @@
 	};
 	
 	Page.prototype.articleURL = function(title) {
-		title = title.replace('/\s+/g', '_');
+		title = title.replace(/\s+/g, '_');
 		title = encodeURIComponent(title);
 		return 'http://' + this.articleDomain() + '/wiki/' + title;
 	};
@@ -75,7 +77,7 @@
 		return 'en.wikipedia.org';
 	};
 	
-	function SearchBox(query, page) {
+	function SearchBox(page) {
 		this.input = document.getElementById('input');
 		this.form = document.getElementById('form');
 		this.clear = document.getElementById('clear');
@@ -235,6 +237,61 @@
 		}, false);
 	};
 	
+	function SavedList(page) {
+		this.page = page;
+		this.update();
+		this.setupLinkListener();
+	}
+	
+	SavedList.prototype.update = function() {
+		var articles = [];
+		this.page.indexedDB.each('articles', function(article) {
+			articles.push(article);
+		}, function() {
+			articles.sort(function(a, b) {
+				var titleA = normalizeTitle(a.displaytitle).toLowerCase();
+				var titleB = normalizeTitle(b.displaytitle).toLowerCase();
+				if (titleA < titleB) {
+					return -1;
+				} else {
+					return 1;
+				}
+			});
+			var html = '',
+			    article, path, deleteLink;
+			for (var i = 0; i < articles.length; i++) {
+				article = articles[i];
+				path = article.url.replace(/http:\/\/[^\/]+/, '');
+				deleteLink = '<a href="#delete" class="delete" data-url="' + article.url + '">&times;</a>';
+				html += '<li><a href="' + path + '">' + article.displaytitle + '</a>' + deleteLink + '</li>';
+			}
+			$('#saved ul')[0].innerHTML = html;
+			if (articles.length > 0) {
+				$('#saved')[0].className = '';
+			} else {
+				$('#saved')[0].className = 'hidden';
+			}
+		});
+	};
+	
+	SavedList.prototype.setupLinkListener = function() {
+		var self = this;
+		$('#saved')[0].addEventListener('click', function(e) {
+			if (e.target &&
+			    e.target.nodeName === 'A' &&
+			    e.target.className === 'delete') {
+				e.preventDefault();
+				var url = e.target.getAttribute('data-url');
+				self.page.indexedDB.delete('articles', url, function() {
+					console.log('callback');
+					self.update();
+				});
+				return false;
+			}
+			return true;
+		}, true);
+	};
+	
 	function Wikipedia(domain) {
 		if (!domain) {
 			domain = 'en.wikipedia.org';
@@ -341,7 +398,7 @@
 	}
 	
 	function titleDecode(url) {
-		var matches = url.match(/^\/wiki\/(.+)(#.+)?$/);
+		var matches = url.match(/^\/wiki\/([^#]+)/);
 		if (matches) {
 			var title = matches[1];
 			title = title.replace(/_/g, ' ');
@@ -352,12 +409,13 @@
 	}
 	
 	function normalizeTitle(text) {
-		text = text.replace(/&amp;/g, '&', text);
-		return text.replace(/<[^>]+>/g, '', text);
+		if (typeof text === 'string') {
+			text = text.replace(/&amp;/g, '&', text);
+			text = text.replace(/<[^>]+>/g, '', text);
+		}
+		return text;
 	}
 	
-	var page = new Page();
-
 	function IndexedDB(dbName, version, setup) {
 		this.dbName = dbName;
 		this.version = version;
@@ -453,30 +511,37 @@
 			return;
 		}
 		var transaction = this.db.transaction([objectStore], 'readwrite');
-		transaction.objectStore(objectStore).delete(key);
+		var request = transaction.objectStore(objectStore).delete(key);
 		if (success) {
-			transaction.onsuccess = success;
+			request.onsuccess = success;
 		}
 		if (error) {
-			transaction.onerror = error;
+			request.onerror = error;
 		}
 	};
 	
-	IndexedDB.prototype.each = function(objectStore, iterator) {
+	IndexedDB.prototype.each = function(objectStore, iterator, callback) {
 		if (!this.isReady) {
+			console.log('not ready');
 			this.readyQueue.push(function() {
-				this.each(objectStore, iterator);
+				this.each(objectStore, iterator, callback);
 			});
 			return;
 		}
+		console.log('ok ready');
 		var objectStore = this.db.transaction(objectStore).objectStore(objectStore);
 		objectStore.openCursor().onsuccess = function(e) {
+			console.log('cursor');
 			var cursor = e.target.result;
 			if (cursor) {
 				var result = iterator(cursor.value);
 				if (result !== false) {
 					cursor.continue();
+				} else if (callback) {
+					callback();
 				}
+			} else if (callback) {
+				callback();
 			}
 		};
 	};
@@ -484,8 +549,11 @@
 	IndexedDB.prototype.ready = function() {
 		this.isReady = true;
 		for (var i = 0; i < this.readyQueue.length; i++) {
-			this.readyQueue[i].shift().apply(this);
+			this.readyQueue.shift().apply(this);
 		}
 	};
+	
+	var page = new Page();
+	window.db = page.indexedDB;
 	
 })();
