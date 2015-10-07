@@ -32,7 +32,6 @@
 	};
 	
 	Page.prototype.load = function(title) {
-		console.log('load: ' + title);
 		this.search.input.value = title;
 		this.search.update();
 		if (this.search.input) {
@@ -40,16 +39,11 @@
 		}
 		var url = this.articleURL(title);
 		var self = this;
-		console.log('get: ' + url);
 		this.indexedDB.get('articles', url, function(article) {
-			console.log('callback', article);
 			if (article) {
-				console.log('cached ' + url);
 				self.display(article);
 			} else {
-				console.log('loading: ' + title);
 				self.wikipedia.load(title, function(data) {
-					console.log('loaded ' + url, data);
 					var article = data.mobileview;
 					article.url = url;
 					self.display(article);
@@ -66,7 +60,7 @@
 		}
 		var bodyContent = $('#bodyContent')[0];
 		bodyContent.innerHTML = html;
-		this.search.input.value = article.displaytitle;
+		this.search.input.value = normalizeTitle(article.displaytitle);
 		window.scrollTo(0, 0);
 	};
 	
@@ -355,6 +349,11 @@
 			return title;
 		}
 		return null;
+	}
+	
+	function normalizeTitle(text) {
+		text = text.replace(/&amp;/g, '&', text);
+		return text.replace(/<[^>]+>/g, '', text);
 	}
 	
 	var page = new Page();
