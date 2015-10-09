@@ -73,7 +73,7 @@
 			html += article.sections[i].text;
 		}
 		var bodyContent = $('#bodyContent')[0];
-		bodyContent.innerHTML = this.filterHTML(html);
+		bodyContent.innerHTML = html; //this.filterHTML(html);
 		this.search.input.value = normalizeTitle(article.displaytitle);
 		this.search.update();
 		if (hash) {
