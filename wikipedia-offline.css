@@ -149,6 +149,11 @@ form .autocomplete:hover .selected {
 	display: none;
 }
 
+.image-placeholder {
+	background: #dedede;
+	display: inline-block;
+}
+
 @media (min-width: 768px) {
 	
 	#input {

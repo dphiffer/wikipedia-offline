@@ -73,13 +73,57 @@
 			html += article.sections[i].text;
 		}
 		var bodyContent = $('#bodyContent')[0];
-		bodyContent.innerHTML = html;
+		bodyContent.innerHTML = this.filterHTML(html);
 		this.search.input.value = normalizeTitle(article.displaytitle);
 		this.search.update();
 		if (hash) {
 			window.location = hash;
 		} else {
 			window.scrollTo(0, 0);
+		}
+		//this.loadImages();
+	};
+	
+	Page.prototype.filterHTML = function(html) {
+		var self = this;
+		html = html.replace(/<img[^>]+>/g, function(tag) {
+			var attrs = tag.substr(5, tag.length - 6);
+			if (attrs.substr(attrs.length - 1, 1) == '/') {
+				attrs = attrs.substr(0, attrs.length - 1);
+			}
+			attrs = attrs.split(/"\s+/);
+			var newAttrs = [], attr, style = '';
+			newAttrs.push('class="image-placeholder"');
+			for (var i = 0; i < attrs.length; i++) {
+				attr = attrs[i];
+				if (attr.trim() == '') {
+					continue;
+				}
+				if (attr.substr(0, 5) == 'data-') {
+					newAttrs.push(attr + '"');
+				} else {
+					var size = attr.match(/(width|height)="([^"]+)/);
+					if (size) {
+						style += size[1] + ': ' + size[2] + 'px; ';
+					}
+					newAttrs.push('data-' + attr + '"');
+				}
+			}
+			newAttrs.push('style="' + style + '"');
+			return '<div ' + newAttrs.join(' ') + '></div>';
+		});
+		return html;
+	};
+	
+	Page.prototype.loadImages = function() {
+		for (var i = 0; i < $('.image-placeholder').length; i++) {
+			var div = $('.image-placeholder')[i];
+			var src = div.getAttribute('data-src');
+			var alt = div.getAttribute('data-alt');
+			var width = div.getAttribute('data-width');
+			var height = div.getAttribute('data-height');
+			div.innerHTML = '<img src="' + src + '" alt="' + alt + '" ' +
+			                     'width="' + width + '" height="' + height + '">';
 		}
 	};
 	
@@ -128,7 +172,9 @@
 				return true;
 			} else if (e.keyCode === 13) {
 				this.page.load(this.input.value);
-				this.autoComplete.className = 'hidden';
+				if (this.autoComplete) {
+					this.autoComplete.className = 'hidden';
+				}
 				e.preventDefault();
 				return false;
 			}
