@@ -7,10 +7,21 @@
 	}
 	
 	function Page() {
-		this.currPage = null;
+		this.url = null;
 		this.wikipedia = new Wikipedia(this.articleDomain());
-		this.indexedDB = new IndexedDB('mediawiki', 1, function(db) {
+		this.indexedDB = new IndexedDB('mediawiki', 5, function(db) {
+			if (db.objectStoreNames.contains('articles')) {
+				db.deleteObjectStore('articles');
+			}
 			db.createObjectStore('articles', { keyPath: 'url' });
+			if (db.objectStoreNames.contains('media')) {
+				db.deleteObjectStore('media');
+			}
+			db.createObjectStore('media');
+			if (db.objectStoreNames.contains('mediaArticles')) {
+				db.deleteObjectStore('mediaArticles');
+			}
+			db.createObjectStore('mediaArticles');
 		});
 		this.search = new SearchBox(this);
 		this.search.input.focus();
@@ -49,8 +60,10 @@
 		}
 		var url = this.articleURL(title);
 		var self = this;
+		this.mediaList = [];
 		this.indexedDB.get('articles', url, function(article) {
 			if (article) {
+				self.url = url;
 				self.display(article, hash);
 			} else {
 				self.wikipedia.load(title, function(data) {
@@ -59,6 +72,13 @@
 						url = self.articleURL(article.redirected);
 					}
 					article.url = url;
+					var html = '';
+					for (var i = 0; i < article.sections.length; i++) {
+						html += article.sections[i].text;
+					}
+					article.html = self.filterHTML(html);
+					article.media = self.mediaList;
+					self.url = url;
 					self.display(article, hash);
 					self.indexedDB.put('articles', article);
 					self.saved.update();
@@ -73,7 +93,7 @@
 			html += article.sections[i].text;
 		}
 		var bodyContent = $('#bodyContent')[0];
-		bodyContent.innerHTML = html; //this.filterHTML(html);
+		bodyContent.innerHTML = article.html;
 		this.search.input.value = normalizeTitle(article.displaytitle);
 		this.search.update();
 		if (hash) {
@@ -81,7 +101,7 @@
 		} else {
 			window.scrollTo(0, 0);
 		}
-		//this.loadImages();
+		this.loadImages();
 	};
 	
 	Page.prototype.filterHTML = function(html) {
@@ -106,6 +126,10 @@
 					if (size) {
 						style += size[1] + ': ' + size[2] + 'px; ';
 					}
+					var src = attr.match(/src="([^"]+)/);
+					if (src) {
+						self.mediaList.push(src[1]);
+					}
 					newAttrs.push('data-' + attr + '"');
 				}
 			}
@@ -119,12 +143,81 @@
 		for (var i = 0; i < $('.image-placeholder').length; i++) {
 			var div = $('.image-placeholder')[i];
 			var src = div.getAttribute('data-src');
-			var alt = div.getAttribute('data-alt');
-			var width = div.getAttribute('data-width');
-			var height = div.getAttribute('data-height');
-			div.innerHTML = '<img src="' + src + '" alt="' + alt + '" ' +
-			                     'width="' + width + '" height="' + height + '">';
+			this.loadImage(div, src);
 		}
+	};
+	
+	Page.prototype.loadImage = function(el, src) {
+		if (this.loadingImages) {
+			if (!this.imageQueue) {
+				this.imageQueue = [];
+			}
+			this.imageQueue.push([el, src]);
+		} else {
+			var self = this;
+			this.loadingImages = true;
+			this.indexedDB.get('media', src, function(dataURL) {
+				if (dataURL) {
+					console.log('Loading ' + src + ' from IndexedDB');
+					self.displayImage(el, dataURL);
+				} else {
+					self.downloadImage(el, src);
+				}
+			});
+		}
+	};
+		
+	Page.prototype.downloadImage = function(el, src) {
+		var xhr = new XMLHttpRequest(),
+		    blob;
+		xhr.open('GET', src, true);
+		xhr.responseType = 'blob';
+		var self = this;
+		xhr.addEventListener('load', function () {
+			if (xhr.status === 200) {
+				console.log("Image " + src + " downloaded");
+				var blob = xhr.response;
+				var URL = window.URL || window.webkitURL;
+				var dataURL = URL.createObjectURL(blob);
+				self.displayImage(el, dataURL);
+				self.saveImage(src, blob);
+				URL.revokeObjectURL(dataURL);
+			}
+		}, false);
+		xhr.send();
+	};
+	
+	Page.prototype.displayImage = function(el, dataURL) {
+		console.log('displayImage', el);
+		var img = document.createElement('img');
+		img.setAttribute('src', dataURL);
+		el.appendChild(img);
+		this.loadingImages = false;
+		if (this.imageQueue &&
+		    this.imageQueue.length > 0) {
+			var image = this.imageQueue.shift();
+			this.loadImage(image[0], image[1]);
+		}
+	};
+	
+	Page.prototype.saveImage = function(src, blob) {
+		console.log('saveImage ' + src);
+		var fr = new FileReader();
+		var self = this;
+		fr.onload = function(e) {
+			console.log('FileReader onload called');
+			self.indexedDB.put('media', e.target.result, src);
+			self.indexedDB.get('mediaArticles', src, function(articles) {
+				if (articles) {
+					articles.push(self.url);
+				} else {
+					articles = [self.url];
+				}
+				self.indexedDB.put('mediaArticles', articles, src);
+			});
+			self.mediaList.push(src);
+		};
+		fr.readAsDataURL(blob);
 	};
 	
 	Page.prototype.articleURL = function(title) {
@@ -371,9 +464,14 @@
 			    e.target.className === 'delete') {
 				e.preventDefault();
 				var url = e.target.getAttribute('data-url');
-				self.page.indexedDB.delete('articles', url, function() {
-					console.log('callback');
-					self.update();
+				self.page.indexedDB.get('articles', url, function(article) {
+					if (!article) {
+						return;
+					}
+					console.log(article.media);
+					self.page.indexedDB.delete('articles', url, function() {
+						self.update();
+					});
 				});
 				return false;
 			}
@@ -505,7 +603,7 @@
 		}
 	};
 	
-	IndexedDB.prototype.put = function(objectStore, value, success, error) {
+	IndexedDB.prototype.put = function(objectStore, value, key, callback) {
 		if (!this.isReady) {
 			this.readyQueue.push(function() {
 				this.put(objectStore, value, success, error);
@@ -513,12 +611,14 @@
 			return;
 		}
 		var transaction = this.db.transaction([objectStore], 'readwrite');
-		transaction.objectStore(objectStore).put(value);
-		if (success) {
-			transaction.onsuccess = success;
+		if (key) {
+			console.log('putting data... ', key);
+			var put = transaction.objectStore(objectStore).put(value, key);
+		} else {
+			var put = transaction.objectStore(objectStore).put(value);
 		}
-		if (error) {
-			transaction.onerror = error;
+		if (callback) {
+			put.oncomplete = callback;
 		}
 	};
 	
